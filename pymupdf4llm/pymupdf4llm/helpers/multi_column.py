@@ -130,7 +130,6 @@ def column_boxes(
             ):
                 continue
             return False
-
         return True
 
     def clean_nblocks(nblocks):
@@ -394,6 +393,20 @@ def column_boxes(
     # Sort text bboxes by ascending background, top, then left coordinates
     bboxes.sort(key=lambda k: (in_bbox(k, path_rects), k.y0, k.x0))
 
+
+
+    for rect in img_bboxes:
+        page.draw_rect(rect, color=[1, 0, 0])
+    #
+    #
+    # for rect in bboxes:
+    #     page.draw_rect(rect, color=[0, 1, 0])
+    #
+    # pix = page.get_pixmap(dpi=150)
+    # import os
+    # page_path = os.path.join("/Volumes/usb-disk/open-source/RAG/data", f"page-tmp.png")
+    # pix.save(page_path)
+
     # immediately return of no text found
     if bboxes == []:
         return []
@@ -441,6 +454,8 @@ def column_boxes(
     # do some elementary cleaning
     nblocks = clean_nblocks(nblocks)
 
+
+
     # several phases of rectangle joining
     nblocks = join_rects_phase1(nblocks)
     nblocks = join_rects_phase2(nblocks)
@@ -448,7 +463,6 @@ def column_boxes(
 
     # return identified text bboxes
     return nblocks
-
 
 if __name__ == "__main__":
     """Only for debugging purposes, currently.
