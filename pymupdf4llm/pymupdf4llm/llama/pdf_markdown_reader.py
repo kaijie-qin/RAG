@@ -3,7 +3,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import pymupdf
 from pymupdf import Document as FitzDocument
-from pymupdf4llm import IdentifyHeaders, to_markdown
+from pymupdf4llm.helpers.pymupdf_rag import IdentifyHeaders, to_markdown
 
 try:
     from llama_index.core.readers.base import BaseReader
