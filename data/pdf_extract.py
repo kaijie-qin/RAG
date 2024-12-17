@@ -1,3 +1,8 @@
+import fitz
+# font = fitz.Font("fangsong", "/opt/maxkb/app/apps/function_lib/data/pdf_preprocess/simfang.ttf")
+font_name = "fangsong"
+font = fitz.Font(font_name, "/Users/kaijie.qin/repo/biaoxin/RAG/data/simfang.ttf")
+concurrency = 10
 
 def save_page_as_image(args):
     import fitz
@@ -23,9 +28,7 @@ def extract_text_from_image(img_str):
 
 
 def run(pdf_document, page_num, sign, empty, font):
-    import os
     import numpy as np
-    import fitz
     import cv2
     import re
 
@@ -67,7 +70,7 @@ def run(pdf_document, page_num, sign, empty, font):
                 # print(font_properties)
                 print((s['bbox'][3] - s['bbox'][1]) / s['size'])
 
-    page.insert_font(fontname="STHeiti", fontbuffer=font.buffer)
+    page.insert_font(fontname=font_name, fontbuffer=font.buffer)
     pix = page.get_pixmap(dpi=72 * 3, annots=False)
     image_data = np.frombuffer(pix.samples, dtype=np.uint8)
     image = image_data.reshape((pix.height, pix.width, pix.n))
@@ -105,7 +108,7 @@ def run(pdf_document, page_num, sign, empty, font):
         if skip:
             continue
         # cv2.rectangle(scene_color, top_left, bottom_right, (0, 0, 255), 2)
-        page.insert_text([top_left[0] / 3, bottom_right[1] / 3], '■', fontname='STHeiti', fontsize=11, color=[0, 0, 1])
+        page.insert_text([top_left[0] / 3, bottom_right[1] / 3], '■', fontname=font_name, fontsize=11, color=[0, 0, 1])
         inserted.append((top_left, bottom_right))
 
     h, w = empty.shape
@@ -126,7 +129,7 @@ def run(pdf_document, page_num, sign, empty, font):
 
         if skip:
             continue
-        page.insert_text([top_left[0] / 3, bottom_right[1] / 3], '□', fontname='STHeiti', fontsize=11, color=[0, 1, 0])
+        page.insert_text([top_left[0] / 3, bottom_right[1] / 3], '□', fontname=font_name, fontsize=11, color=[0, 1, 0])
         inserted.append((top_left, bottom_right))
 
     image_list = page.get_images(full=True)
@@ -139,11 +142,11 @@ def run(pdf_document, page_num, sign, empty, font):
 
         m = 4
 
-        image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_UNCHANGED)
-        height, width, channels = image.shape
+        image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_GRAYSCALE)
+        height, width = image.shape
         new_height = height * m
         new_width = width * m
-        new_image = np.ones((new_height, new_width, channels), dtype=np.uint8) * 255  # White background
+        new_image = np.ones((new_height, new_width), dtype=np.uint8) * 255  # White background
 
         # Place the original image in the center of the new image
         x_offset = (new_width - width) // 2
@@ -160,7 +163,11 @@ def run(pdf_document, page_num, sign, empty, font):
         img_idx += 1
         cv2.imwrite(f"/tmp/1211/{page_num}-{img_idx}.jpg", new_image)
 
-        img_rect = page.get_image_rects(xref)[0]
+        image_retrived = page.get_image_rects(xref)
+        if not image_retrived:
+            continue
+
+        img_rect = image_retrived[0]
         coords = (img_rect.x0, img_rect.y0, img_rect.x1, img_rect.y1)
 
         import base64
@@ -185,14 +192,26 @@ def run(pdf_document, page_num, sign, empty, font):
                         total_cnt += 0.75
             total_len += coords[2] - coords[0]
 
+        if total_cnt == 0:
+            continue
+
         fontsize = total_len / total_cnt / 1.02
         print(f"fontsize: {fontsize}")
         print()
+
+        y_offset = 0
         for texts_ocred, coords in text_group:
+            y_offset += 8
+            x_offset = 0
             for rec_txt, dt_boxes in texts_ocred:
-                # page.draw_rect(coords, fill=(1, 1, 1), color=[1, 0, 0])
-                page.insert_text((coords[0], coords[3]), rec_txt, fontname='STHeiti', fontsize=fontsize, color=[0, 0, 1])
+                if x_offset > 400:
+                    x_offset = 0
+                    y_offset += 8
+
+                page.insert_text((coords[0] + x_offset, coords[1] + y_offset), rec_txt, fontname=font_name, fontsize=fontsize, color=[0, 0, 1])
                 print(f"inserted text : {rec_txt}")
+                x_offset += 8 * len(rec_txt)
+
     print(f"end page : {page_num}")
 
 
@@ -201,10 +220,8 @@ def pre_process_pdf(pdf_path="/opt/maxkb/app/uploads/15c709be-b76c-11ef-9850-024
                     data_path = "/opt/maxkb/app/apps/function_lib/data/pdf_preprocess/"):
 
     import os
-    import numpy as np
     import fitz
     import cv2
-    import re
 
     sign_path = os.path.join(data_path, "sign_no_zoom.png")
     empty_path = os.path.join(data_path, "empty_no_zoom.png")
@@ -217,8 +234,6 @@ def pre_process_pdf(pdf_path="/opt/maxkb/app/uploads/15c709be-b76c-11ef-9850-024
 
     try:
         pdf_document = fitz.open(pdf_path)
-        font_path = os.path.join(data_path, "STHeiti.ttc")
-        font = fitz.Font("STHeiti", font_path)
 
         threads = []
         for page_num in range(len(pdf_document)):
@@ -227,8 +242,8 @@ def pre_process_pdf(pdf_path="/opt/maxkb/app/uploads/15c709be-b76c-11ef-9850-024
             threads.append(t)
             t.start()
 
-            if page_num >= 100:
-                threads[-100].join()
+            if page_num >= concurrency:
+                threads[-concurrency].join()
 
             # if page_num >= 12:
             #     break
@@ -246,4 +261,16 @@ def pre_process_pdf(pdf_path="/opt/maxkb/app/uploads/15c709be-b76c-11ef-9850-024
     return result
 
 
-print(pre_process_pdf("/Volumes/usb-disk/open-source/RAG/data/nbxc.pdf", "/tmp/nbxc.pdf", '/Volumes/usb-disk/open-source/RAG/data'))
+# pre_process_pdf("/Users/kaijie.qin/repo/biaoxin/RAG/data/nbxc.pdf", "/Users/kaijie.qin/repo/biaoxin/RAG/data/nbxc.fixed.pdf", '/Users/kaijie.qin/repo/biaoxin/RAG/data')
+pre_process_pdf("/Users/kaijie.qin/Downloads/1224_4.pdf", "/tmp/1224_4.pdf", '/Users/kaijie.qin/repo/biaoxin/RAG/data')
+
+
+# import os
+# for root, dirs, files in os.walk('/Volumes/usb-disk/tmp/pdf_zbwj_jinrun'):
+#     for file in files:
+#         if file.startswith("."):
+#             continue
+#         if os.path.exists(os.path.join(root+"_res", file)):
+#             continue
+#
+#         print(pre_process_pdf(os.path.join(root, file), os.path.join(root+"_res", file), '/Users/kaijie.qin/repo/biaoxin/RAG/data'))

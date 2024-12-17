@@ -1008,7 +1008,7 @@ if __name__ == "__main__":
             sys.exit(f"Page number(s) {wrong_pages} not in '{doc}'.")
 
     # get the markdown string
-    md_string = to_markdown(doc, pages=pages)
+    md_string = to_markdown(doc, pages=pages, page_chunks=True)
 
     # output to a text file with extension ".md"
     outname = doc.name.replace(".pdf", ".md")
