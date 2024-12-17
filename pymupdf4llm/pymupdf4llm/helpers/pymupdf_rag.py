@@ -890,14 +890,13 @@ def to_markdown(
         """
 
         for text_rect in text_rects:
-            parms.page.draw_rect(text_rect, fill=None, color=[1, 0, 0])
+            # parms.page.draw_rect(text_rect, fill=None, color=[1, 0, 0])
             # output tables above this rectangle
             parms.md_string += output_tables(parms, text_rect)
             # parms.md_string += output_images(parms, text_rect)
 
             # output text inside this rectangle
             parms.md_string += write_text(parms, text_rect, force_text=force_text)
-            print(text_rect)
 
         parms.md_string = parms.md_string.replace(" ,", ",").replace("-\n", "")
         # write any remaining tables and images
@@ -1008,11 +1007,14 @@ if __name__ == "__main__":
             sys.exit(f"Page number(s) {wrong_pages} not in '{doc}'.")
 
     # get the markdown string
-    md_string = to_markdown(doc, pages=pages, page_chunks=True)
+    contents = to_markdown(doc, pages=pages, page_chunks=True)
 
     # output to a text file with extension ".md"
     outname = doc.name.replace(".pdf", ".md")
     doc.save(doc.name.replace(".pdf", ".fixed.pdf"))
-    pathlib.Path(outname).write_bytes(md_string.encode())
+    with open(outname, 'w') as f:
+        for page_content in contents:
+            f.write(page_content['text'])
+
     t1 = time.perf_counter()  # stop timer
     print(f"Markdown creation time for {doc.name=} {round(t1-t0,2)} sec.")
