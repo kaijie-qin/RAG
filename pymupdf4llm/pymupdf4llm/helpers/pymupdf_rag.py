@@ -25,13 +25,14 @@ Copyright and License
 Copyright 2024 Artifex Software, Inc.
 License GNU Affero GPL 3.0
 """
-
+import time
 import os
 import string
 from binascii import b2a_base64
 import pymupdf
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
+from pymupdf4llm.helpers.pdf_preprocess_helpers import pre_process_pdf
 from pymupdf4llm.helpers.progress import ProgressBar
 from dataclasses import dataclass
 
@@ -280,6 +281,15 @@ def to_markdown(
         show_progress: (bool) print progress as each page is processed.
 
     """
+
+    pdf_new = doc.replace(".pdf", f".{int(time.time())}.pdf")
+    try:
+        result = pre_process_pdf(doc, pdf_new, os.path.join(os.path.dirname(os.path.realpath(__file__)), '../data'))
+        if result['success']:
+            doc = pdf_new
+    except Exception as e:
+        pass
+
     if write_images is False and embed_images is False and force_text is False:
         raise ValueError("Image and text on images cannot both be suppressed.")
     if embed_images is True:
@@ -970,6 +980,12 @@ def to_markdown(
             )
         del parms
 
+    if os.path.exists(pdf_new):
+        try:
+            os.remove(pdf_new)
+        except Exception as e:
+            pass
+
     return document_output
 
 
@@ -1007,11 +1023,16 @@ if __name__ == "__main__":
             sys.exit(f"Page number(s) {wrong_pages} not in '{doc}'.")
 
     # get the markdown string
-    contents = to_markdown(doc, pages=pages, page_chunks=True)
+    contents = to_markdown(filename, pages=pages, page_chunks=True)
+    print(contents)
 
+    try:
     # output to a text file with extension ".md"
-    outname = doc.name.replace(".pdf", ".md")
-    doc.save(doc.name.replace(".pdf", ".fixed.pdf"))
+        outname = filename.replace(".pdf", ".md")
+        doc.save(doc.name.replace(".pdf", ".fixed.pdf"))
+    except Exception as e:
+        print(str(e))
+
     with open(outname, 'w') as f:
         for page_content in contents:
             f.write(page_content['text'])
