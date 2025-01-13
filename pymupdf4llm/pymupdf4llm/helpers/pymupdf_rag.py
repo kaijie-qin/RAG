@@ -25,6 +25,7 @@ Copyright and License
 Copyright 2024 Artifex Software, Inc.
 License GNU Affero GPL 3.0
 """
+import json
 import time
 import os
 import string
@@ -282,11 +283,14 @@ def to_markdown(
 
     """
 
-    pdf_new = doc.replace(".pdf", f".{int(time.time())}.pdf")
+    cache_folder = "/tmp/maxkb_cache"
+    os.makedirs(cache_folder, exist_ok=True)
+    pdf_new = os.path.join(cache_folder, os.path.basename(doc))
     try:
-        result = pre_process_pdf(doc, pdf_new, os.path.join(os.path.dirname(os.path.realpath(__file__)), '../data'))
-        if result['success']:
-            doc = pdf_new
+        if os.getenv("PYMUPDF_PREPROCESS_OCR", "true").lower() != 'false':
+            result = pre_process_pdf(doc, pdf_new, os.path.join(os.path.dirname(os.path.realpath(__file__)), '../data'))
+            if result['success']:
+                doc = pdf_new
     except Exception as e:
         pass
 
@@ -990,7 +994,6 @@ def to_markdown(
 
 
 if __name__ == "__main__":
-    import pathlib
     import sys
     import time
 
@@ -1024,18 +1027,16 @@ if __name__ == "__main__":
 
     # get the markdown string
     contents = to_markdown(filename, pages=pages, page_chunks=True)
-    print(contents)
-
     try:
-    # output to a text file with extension ".md"
-        outname = filename.replace(".pdf", ".md")
-        doc.save(doc.name.replace(".pdf", ".fixed.pdf"))
+        outname = os.path.join("/tmp", os.path.basename(filename) + ".md")
+        with open(outname, 'w') as f:
+            for page_content in contents:
+                f.write(page_content['text'])
     except Exception as e:
         print(str(e))
 
-    with open(outname, 'w') as f:
-        for page_content in contents:
-            f.write(page_content['text'])
+
 
     t1 = time.perf_counter()  # stop timer
     print(f"Markdown creation time for {doc.name=} {round(t1-t0,2)} sec.")
+    print(f"outname: {outname}")
