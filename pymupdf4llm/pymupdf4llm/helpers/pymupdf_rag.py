@@ -25,17 +25,17 @@ Copyright and License
 Copyright 2024 Artifex Software, Inc.
 License GNU Affero GPL 3.0
 """
-import json
-import time
 import os
 import string
 from binascii import b2a_base64
+from dataclasses import dataclass
+
 import pymupdf
+
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
 from pymupdf4llm.helpers.pdf_preprocess_helpers import pre_process_pdf
 from pymupdf4llm.helpers.progress import ProgressBar
-from dataclasses import dataclass
 
 # Characters recognized as bullets when starting a line.
 bullet = tuple(
@@ -803,7 +803,7 @@ def to_markdown(
 
         # extract images on page
         # ignore images contained in some other one (simplified mechanism)
-        img_info = page.get_image_info()
+        # img_info = page.get_image_info()
 
         # for rect in img_info:
         #     page.draw_rect(rect['bbox'], color=[0, 1, 0])
@@ -812,24 +812,24 @@ def to_markdown(
         # pix.save(page_path)
 
 
-        for i in range(len(img_info)):
-            item = img_info[i]
-            item["bbox"] = pymupdf.Rect(item["bbox"]) & parms.clip
-            img_info[i] = item
-
-        # sort descending by image area size
-        img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
-        # run from back to front (= small to large)
-        for i in range(len(img_info) - 1, 0, -1):
-            r = img_info[i]["bbox"]
-            if r.is_empty:
-                del img_info[i]
-                continue
-            for j in range(i):  # image areas larger than r
-                if r in img_info[j]["bbox"]:
-                    del img_info[i]  # contained in some larger image
-                    break
-        parms.images = img_info
+        # for i in range(len(img_info)):
+        #     item = img_info[i]
+        #     item["bbox"] = pymupdf.Rect(item["bbox"]) & parms.clip
+        #     img_info[i] = item
+        #
+        # # sort descending by image area size
+        # img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
+        # # run from back to front (= small to large)
+        # for i in range(len(img_info) - 1, 0, -1):
+        #     r = img_info[i]["bbox"]
+        #     if r.is_empty:
+        #         del img_info[i]
+        #         continue
+        #     for j in range(i):  # image areas larger than r
+        #         if r in img_info[j]["bbox"]:
+        #             del img_info[i]  # contained in some larger image
+        #             break
+        # parms.images = img_info
         parms.img_rects = [i["bbox"] for i in parms.images]
 
         # Locate all tables on page
@@ -923,7 +923,6 @@ def to_markdown(
         parms.md_string += output_tables(parms, None)
         # parms.md_string += output_images(parms, None)
 
-        parms.md_string += "\n-----\n\n"
         while parms.md_string.startswith("\n"):
             parms.md_string = parms.md_string[1:]
         parms.md_string = parms.md_string.replace(chr(0), chr(0xFFFD))

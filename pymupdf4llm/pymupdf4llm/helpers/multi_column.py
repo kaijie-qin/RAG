@@ -329,9 +329,9 @@ def column_boxes(
     bboxes = []
 
     # image bboxes
-    img_bboxes = []
-    if avoid is not None:
-        img_bboxes.extend(avoid)
+    # img_bboxes = []
+    # if avoid is not None:
+    #     img_bboxes.extend(avoid)
 
     # non-horizontal text boxes, avoid when expanding other text boxes
     vert_bboxes = []
@@ -355,8 +355,8 @@ def column_boxes(
     path_rects.sort(key=lambda b: (b.y0, b.x0))
 
     # bboxes of images on page, no need to sort them
-    for item in page.get_images():
-        img_bboxes.extend(page.get_image_rects(item[0]))
+    # for item in page.get_images():
+    #     img_bboxes.extend(page.get_image_rects(item[0]))
 
     # blocks of text on page
     blocks = textpage.extractDICT()["blocks"]
@@ -366,8 +366,8 @@ def column_boxes(
         bbox = pymupdf.Rect(b["bbox"])  # bbox of the block
 
         # ignore text written upon images
-        if no_image_text and in_bbox(bbox, img_bboxes):
-            continue
+        # if no_image_text and in_bbox(bbox, img_bboxes):
+        #     continue
 
         # confirm first line to be horizontal
         try:
@@ -395,8 +395,8 @@ def column_boxes(
 
 
 
-    for rect in img_bboxes:
-        page.draw_rect(rect, color=[1, 0, 0])
+    # for rect in img_bboxes:
+    #     page.draw_rect(rect, color=[1, 0, 0])
     #
     #
     # for rect in bboxes:
