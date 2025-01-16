@@ -205,10 +205,10 @@ def run(pdf_document, page_num, sign, empty, font):
                     y_offset += 8
 
                 page.insert_text((coords[0] + x_offset, coords[1] + y_offset), rec_txt, fontname=font_name, fontsize=fontsize, color=[0, 0, 1])
-                print(f"inserted ocr text : {rec_txt}")
+                # print(f"inserted ocr text : {rec_txt}")
                 x_offset += 8 * len(rec_txt)
 
-    print(f"end page : {page_num}")
+    # print(f"end page : {page_num}")
 
 
 def pre_process_pdf(pdf_path="/opt/maxkb/app/uploads/15c709be-b76c-11ef-9850-0242ac110002/j1209招标文件/j1209招标文件.pdf",

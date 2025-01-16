@@ -283,7 +283,11 @@ def to_markdown(
 
     """
 
-    cache_folder = "/tmp/maxkb_cache"
+    from datetime import datetime
+    current_time = datetime.now()
+    formatted_time = current_time.strftime('%Y-%m-%d-%H')
+
+    cache_folder = f"/tmp/maxkb_cache/{formatted_time}"
     os.makedirs(cache_folder, exist_ok=True)
     pdf_new = os.path.join(cache_folder, os.path.basename(doc))
     try:
