@@ -239,6 +239,7 @@ def is_significant(box, paths):
 def to_markdown(
     doc,
     *,
+    ocr=True,
     pages: list = None,
     hdr_info=None,
     write_images=False,
@@ -291,7 +292,7 @@ def to_markdown(
     os.makedirs(cache_folder, exist_ok=True)
     pdf_new = os.path.join(cache_folder, os.path.basename(doc))
     try:
-        if os.getenv("PYMUPDF_PREPROCESS_OCR", "true").lower() != 'false':
+        if ocr:
             result = pre_process_pdf(doc, pdf_new, os.path.join(os.path.dirname(os.path.realpath(__file__)), '../data'))
             if result['success']:
                 doc = pdf_new
@@ -987,11 +988,11 @@ def to_markdown(
             )
         del parms
 
-    if os.path.exists(pdf_new):
-        try:
-            os.remove(pdf_new)
-        except Exception as e:
-            pass
+    # if os.path.exists(pdf_new):
+    #     try:
+    #         os.remove(pdf_new)
+    #     except Exception as e:
+    #         pass
 
     return document_output
 

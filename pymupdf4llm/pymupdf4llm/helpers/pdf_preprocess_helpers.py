@@ -208,12 +208,32 @@ def run(pdf_document, page_num, sign, empty, font):
                 # print(f"inserted ocr text : {rec_txt}")
                 x_offset += 8 * len(rec_txt)
 
-    # print(f"end page : {page_num}")
 
+def file_recently_ocred(file_path):
+    import time
+    if not os.path.exists(file_path):
+        print(f"File '{file_path}' does not exist.")
+        return False
+
+    current_time = time.time()
+    file_mod_time = os.path.getmtime(file_path)
+
+    if current_time - file_mod_time <= 300:
+        print(f"File '{file_path}' was updated within the last 5 minutes. skip ocr")
+        return True
+    else:
+        print(f"File '{file_path}' was not updated within the last 5 minutes. will ocr")
+        return False
 
 def pre_process_pdf(pdf_path="/opt/maxkb/app/uploads/15c709be-b76c-11ef-9850-0242ac110002/j1209招标文件/j1209招标文件.pdf",
                     output_path="/opt/maxkb/app/uploads/tmp/j1209招标文件.pdf",
                     data_path = "/opt/maxkb/app/apps/function_lib/data/pdf_preprocess/"):
+    result = {'cache': False}
+
+    if file_recently_ocred(output_path):
+        result['success'] = True
+        result['cache'] = True
+        return result
 
     import os
     import fitz
@@ -226,7 +246,6 @@ def pre_process_pdf(pdf_path="/opt/maxkb/app/uploads/15c709be-b76c-11ef-9850-024
     empty = cv2.imread(empty_path, cv2.IMREAD_GRAYSCALE)
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    result = {}
 
     try:
         pdf_document = fitz.open(pdf_path)
