@@ -93,12 +93,19 @@ def column_boxes(
         """Check for relevant text."""
         return WHITE.issuperset(text)
 
-    def in_bbox(bb, bboxes):
-        """Return 1-based number if a bbox contains bb, else return 0."""
+    def in_bbox(bb, bboxes, threshold=0.95):
         for i, bbox in enumerate(bboxes, start=1):
-            if bb in bbox:
+            if almost_in_bbox(bb, bbox, threshold):
                 return i
         return 0
+
+    def almost_in_bbox(bb, box, threshold):
+        intersect = bb & box
+        if intersect.is_empty:
+            return False
+
+        ratio = intersect.get_area() / bb.get_area()
+        return ratio >= threshold
 
     def intersects_bboxes(bb, bboxes):
         """Return True if a bbox touches bb, else return False."""
@@ -123,7 +130,6 @@ def column_boxes(
             ):
                 continue
             return False
-
         return True
 
     def clean_nblocks(nblocks):
@@ -323,9 +329,9 @@ def column_boxes(
     bboxes = []
 
     # image bboxes
-    img_bboxes = []
-    if avoid is not None:
-        img_bboxes.extend(avoid)
+    # img_bboxes = []
+    # if avoid is not None:
+    #     img_bboxes.extend(avoid)
 
     # non-horizontal text boxes, avoid when expanding other text boxes
     vert_bboxes = []
@@ -349,8 +355,8 @@ def column_boxes(
     path_rects.sort(key=lambda b: (b.y0, b.x0))
 
     # bboxes of images on page, no need to sort them
-    for item in page.get_images():
-        img_bboxes.extend(page.get_image_rects(item[0]))
+    # for item in page.get_images():
+    #     img_bboxes.extend(page.get_image_rects(item[0]))
 
     # blocks of text on page
     blocks = textpage.extractDICT()["blocks"]
@@ -360,8 +366,8 @@ def column_boxes(
         bbox = pymupdf.Rect(b["bbox"])  # bbox of the block
 
         # ignore text written upon images
-        if no_image_text and in_bbox(bbox, img_bboxes):
-            continue
+        # if no_image_text and in_bbox(bbox, img_bboxes):
+        #     continue
 
         # confirm first line to be horizontal
         try:
@@ -386,6 +392,20 @@ def column_boxes(
 
     # Sort text bboxes by ascending background, top, then left coordinates
     bboxes.sort(key=lambda k: (in_bbox(k, path_rects), k.y0, k.x0))
+
+
+
+    # for rect in img_bboxes:
+    #     page.draw_rect(rect, color=[1, 0, 0])
+    #
+    #
+    # for rect in bboxes:
+    #     page.draw_rect(rect, color=[0, 1, 0])
+    #
+    # pix = page.get_pixmap(dpi=150)
+    # import os
+    # page_path = os.path.join("/Volumes/usb-disk/open-source/RAG/data", f"page-tmp.png")
+    # pix.save(page_path)
 
     # immediately return of no text found
     if bboxes == []:
@@ -434,6 +454,8 @@ def column_boxes(
     # do some elementary cleaning
     nblocks = clean_nblocks(nblocks)
 
+
+
     # several phases of rectangle joining
     nblocks = join_rects_phase1(nblocks)
     nblocks = join_rects_phase2(nblocks)
@@ -441,7 +463,6 @@ def column_boxes(
 
     # return identified text bboxes
     return nblocks
-
 
 if __name__ == "__main__":
     """Only for debugging purposes, currently.

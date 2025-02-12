@@ -25,15 +25,17 @@ Copyright and License
 Copyright 2024 Artifex Software, Inc.
 License GNU Affero GPL 3.0
 """
-
 import os
 import string
 from binascii import b2a_base64
+from dataclasses import dataclass
+
 import pymupdf
+
 from pymupdf4llm.helpers.get_text_lines import get_raw_lines, is_white
 from pymupdf4llm.helpers.multi_column import column_boxes
+from pymupdf4llm.helpers.pdf_preprocess_helpers import pre_process_pdf
 from pymupdf4llm.helpers.progress import ProgressBar
-from dataclasses import dataclass
 
 # Characters recognized as bullets when starting a line.
 bullet = tuple(
@@ -237,19 +239,20 @@ def is_significant(box, paths):
 def to_markdown(
     doc,
     *,
+    ocr=True,
     pages: list = None,
     hdr_info=None,
     write_images=False,
     embed_images=False,
     image_path="",
     image_format="png",
-    image_size_limit=0.05,
+    image_size_limit=0.01,
     force_text=True,
     page_chunks=False,
     margins=(0, 50, 0, 50),
     dpi=150,
-    page_width=612,
-    page_height=None,
+    page_width=595,
+    page_height=842,
     table_strategy="lines_strict",
     graphics_limit=None,
     fontsize_limit=3,
@@ -280,6 +283,22 @@ def to_markdown(
         show_progress: (bool) print progress as each page is processed.
 
     """
+
+    from datetime import datetime
+    current_time = datetime.now()
+    formatted_time = current_time.strftime('%Y-%m-%d-%H')
+
+    cache_folder = f"/tmp/maxkb_cache/{formatted_time}"
+    os.makedirs(cache_folder, exist_ok=True)
+    pdf_new = os.path.join(cache_folder, os.path.basename(doc))
+    try:
+        if ocr:
+            result = pre_process_pdf(doc, pdf_new, os.path.join(os.path.dirname(os.path.realpath(__file__)), '../data'))
+            if result['success']:
+                doc = pdf_new
+    except Exception as e:
+        pass
+
     if write_images is False and embed_images is False and force_text is False:
         raise ValueError("Image and text on images cannot both be suppressed.")
     if embed_images is True:
@@ -623,8 +642,7 @@ def to_markdown(
         this_md = ""  # markdown string for table(s) content
         if text_rect is not None:  # select tables above the text block
             for i, trect in sorted(
-                [j for j in parms.tab_rects.items() if j[1].y1 <= text_rect.y0],
-                key=lambda j: (j[1].y1, j[1].x0),
+                [j for j in parms.tab_rects.items() if j[1].y1 <= text_rect.y0], key=lambda j: (j[1].y1, j[1].x0),
             ):
                 this_md += parms.tabs[i].to_markdown(clean=False)
                 if EXTRACT_WORDS:
@@ -642,7 +660,6 @@ def to_markdown(
                     )
                     parms.line_rects.extend(cells)
                 del parms.tab_rects[i]  # do not touch this table twice
-
         else:  # output all remaining tables
             for i, trect in sorted(
                 parms.tab_rects.items(),
@@ -664,6 +681,7 @@ def to_markdown(
                     )
                     parms.line_rects.extend(cells)
                 del parms.tab_rects[i]  # do not touch this table twice
+
         return this_md
 
     def output_images(parms, text_rect):
@@ -786,25 +804,33 @@ def to_markdown(
 
         # extract images on page
         # ignore images contained in some other one (simplified mechanism)
-        img_info = page.get_image_info()
-        for i in range(len(img_info)):
-            item = img_info[i]
-            item["bbox"] = pymupdf.Rect(item["bbox"]) & parms.clip
-            img_info[i] = item
+        # img_info = page.get_image_info()
 
-        # sort descending by image area size
-        img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
-        # run from back to front (= small to large)
-        for i in range(len(img_info) - 1, 0, -1):
-            r = img_info[i]["bbox"]
-            if r.is_empty:
-                del img_info[i]
-                continue
-            for j in range(i):  # image areas larger than r
-                if r in img_info[j]["bbox"]:
-                    del img_info[i]  # contained in some larger image
-                    break
-        parms.images = img_info
+        # for rect in img_info:
+        #     page.draw_rect(rect['bbox'], color=[0, 1, 0])
+        # pix = page.get_pixmap(dpi=150)
+        # page_path = os.path.join("/Volumes/usb-disk/open-source/RAG/data/nbxc_pages", f"page-{pno}.png")
+        # pix.save(page_path)
+
+
+        # for i in range(len(img_info)):
+        #     item = img_info[i]
+        #     item["bbox"] = pymupdf.Rect(item["bbox"]) & parms.clip
+        #     img_info[i] = item
+        #
+        # # sort descending by image area size
+        # img_info.sort(key=lambda i: abs(i["bbox"]), reverse=True)
+        # # run from back to front (= small to large)
+        # for i in range(len(img_info) - 1, 0, -1):
+        #     r = img_info[i]["bbox"]
+        #     if r.is_empty:
+        #         del img_info[i]
+        #         continue
+        #     for j in range(i):  # image areas larger than r
+        #         if r in img_info[j]["bbox"]:
+        #             del img_info[i]  # contained in some larger image
+        #             break
+        # parms.images = img_info
         parms.img_rects = [i["bbox"] for i in parms.images]
 
         # Locate all tables on page
@@ -840,9 +866,9 @@ def to_markdown(
         vg_clusters0 = []  # worthwhile vector graphics go here
 
         # walk through all vector graphics outside any table
-        for bbox in refine_boxes(page.cluster_drawings(drawings=paths)):
-            if is_significant(bbox, paths):
-                vg_clusters0.append(bbox)
+        # for bbox in refine_boxes(page.cluster_drawings(drawings=paths)):
+        #     if is_significant(bbox, paths):
+                # vg_clusters0.append(bbox)
 
         # remove paths that are not in some relevant graphic
         parms.actual_paths = [p for p in paths if is_in_rects(p["rect"], vg_clusters0)]
@@ -855,6 +881,13 @@ def to_markdown(
         parms.vg_clusters0 = refine_boxes(vg_clusters0)
 
         parms.vg_clusters = dict((i, r) for i, r in enumerate(parms.vg_clusters0))
+
+
+        # page.draw_rect(parms.tab_rects0[1], color=[0, 1, 0])
+        # pix = page.get_pixmap(dpi=150)
+        # page_path = os.path.join("/Volumes/usb-disk/open-source/RAG/data", f"page-{pno}.png")
+        # pix.save(page_path)
+
 
         # identify text bboxes on page, avoiding tables, images and graphics
         text_rects = column_boxes(
@@ -874,10 +907,12 @@ def to_markdown(
         the text rectangles.
         ------------------------------------------------------------------
         """
+
         for text_rect in text_rects:
+            # parms.page.draw_rect(text_rect, fill=None, color=[1, 0, 0])
             # output tables above this rectangle
             parms.md_string += output_tables(parms, text_rect)
-            parms.md_string += output_images(parms, text_rect)
+            # parms.md_string += output_images(parms, text_rect)
 
             # output text inside this rectangle
             parms.md_string += write_text(parms, text_rect, force_text=force_text)
@@ -885,11 +920,10 @@ def to_markdown(
         parms.md_string = parms.md_string.replace(" ,", ",").replace("-\n", "")
         # write any remaining tables and images
 
+
         parms.md_string += output_tables(parms, None)
+        # parms.md_string += output_images(parms, None)
 
-        parms.md_string += output_images(parms, None)
-
-        parms.md_string += "\n-----\n\n"
         while parms.md_string.startswith("\n"):
             parms.md_string = parms.md_string[1:]
         parms.md_string = parms.md_string.replace(chr(0), chr(0xFFFD))
@@ -954,11 +988,16 @@ def to_markdown(
             )
         del parms
 
+    # if os.path.exists(pdf_new):
+    #     try:
+    #         os.remove(pdf_new)
+    #     except Exception as e:
+    #         pass
+
     return document_output
 
 
 if __name__ == "__main__":
-    import pathlib
     import sys
     import time
 
@@ -991,10 +1030,17 @@ if __name__ == "__main__":
             sys.exit(f"Page number(s) {wrong_pages} not in '{doc}'.")
 
     # get the markdown string
-    md_string = to_markdown(doc, pages=pages)
+    contents = to_markdown(filename, pages=pages, page_chunks=True)
+    try:
+        outname = os.path.join("/tmp", os.path.basename(filename) + ".md")
+        with open(outname, 'w') as f:
+            for page_content in contents:
+                f.write(page_content['text'])
+    except Exception as e:
+        print(str(e))
 
-    # output to a text file with extension ".md"
-    outname = doc.name.replace(".pdf", ".md")
-    pathlib.Path(outname).write_bytes(md_string.encode())
+
+
     t1 = time.perf_counter()  # stop timer
     print(f"Markdown creation time for {doc.name=} {round(t1-t0,2)} sec.")
+    print(f"outname: {outname}")
