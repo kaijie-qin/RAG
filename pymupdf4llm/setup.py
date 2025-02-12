@@ -34,6 +34,6 @@ setuptools.setup(
                         "helpers/*.py",
                         "llama/*.py",
                         'data/*.png',
-                        'data/simfang.ttf'],
+                        'data/*.ttf'],
     },
 )
