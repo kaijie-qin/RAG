@@ -16,16 +16,18 @@ def save_page_as_image(args):
     return page_id
 
 def extract_text_from_image(img_str):
-    url = os.getenv("OCR_HOST", "http://14.22.89.198:3402/ocr")  # 服务URL
-    data = {"use_det": True, "use_cls": False, "use_rec": True, 'image_data': img_str}
+    try:
+        url = os.getenv("OCR_HOST", "http://14.22.89.198:3402/ocr")  # 服务URL
+        data = {"use_det": True, "use_cls": False, "use_rec": True, 'image_data': img_str}
 
-    response = requests.post(url, data=data, timeout=6000)
-    if response.status_code != 200:
-        return {'text': [], "error": response.text, "status_code": response.status_code}
+        response = requests.post(url, data=data, timeout=6000)
+        if response.status_code != 200:
+            return {'text': [], "error": response.text, "status_code": response.status_code}
 
-    result = [(v['rec_txt'], v['dt_boxes']) for k, v in response.json().items()]
-    return {"text": result, "status_code": response.status_code}
-
+        result = [(v['rec_txt'], v['dt_boxes']) for k, v in response.json().items()]
+        return {"text": result, "status_code": response.status_code}
+    except:
+        return {"text": '', "status_code": 500}
 
 def run(pdf_document, page_num, sign, empty, font):
     import numpy as np
@@ -205,9 +207,7 @@ def run(pdf_document, page_num, sign, empty, font):
                     y_offset += 8
 
                 page.insert_text((coords[0] + x_offset, coords[1] + y_offset), rec_txt, fontname=font_name, fontsize=fontsize, color=[0, 0, 1])
-                # print(f"inserted ocr text : {rec_txt}")
                 x_offset += 8 * len(rec_txt)
-
 
 def file_recently_ocred(file_path):
     import time
